@@ -34,9 +34,15 @@ On failure, a trace is auto-saved to:
 NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/traces/<ScenarioName>.zip
 ```
 
-Open it at **https://trace.playwright.dev** — screenshots · DOM · network · console at every step.
+**In CI:** click the **🔍 Open Trace Viewer** link in the job summary — one click, no download.
 
-In CI, download the `playwright-traces` artifact from the workflow run and drop it onto the same page.
+**Locally:**
+```powershell
+.\NoviE2E.Suite.Accounts.Tests\bin\Debug\net8.0\playwright.ps1 show-trace traces\<ScenarioName>.zip
+```
+
+> If a colleague gets a *"Local Network Access"* error on the CI link, fix it in Chrome:
+> `chrome://flags/#block-insecure-private-network-requests` → **Disabled** → relaunch Chrome
 
 ---
 
