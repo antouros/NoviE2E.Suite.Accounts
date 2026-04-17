@@ -72,9 +72,15 @@ jobs:
             cat >> $GITHUB_STEP_SUMMARY << SUMMARY
           ### 🔍 Open Trace Viewer
 
-          1. [Download the **playwright-traces** artifact]($RUN_URL#artifacts)
-          2. Unzip it
-          3. Open **[trace.playwright.dev](https://trace.playwright.dev)** and drop the \`.zip\` onto the page
+          1. [Download the **playwright-traces** artifact]($RUN_URL#artifacts) and unzip it
+          2. Open the trace locally — **no upload needed, no browser security issues:**
+
+          \`\`\`powershell
+          cd NoviE2E.Suite.Accounts.Tests
+          .\bin\Debug\net8.0\playwright.ps1 show-trace path\to\Trace_viewer_showcase___intentional_failure.zip
+          \`\`\`
+
+          > ℹ️ Alternatively open [trace.playwright.dev](https://trace.playwright.dev) and use **Select file** — do not drag-and-drop (known browser security limitation with PWAs).
           SUMMARY
           fi
 
