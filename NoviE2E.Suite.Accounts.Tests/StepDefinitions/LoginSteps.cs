@@ -1,6 +1,8 @@
+using Microsoft.Playwright;
 using NoviE2E.Suite.Accounts.Tests.PageObjects;
 using NoviE2E.Suite.Accounts.Tests.Support;
 using Reqnroll;
+using static Microsoft.Playwright.Assertions;
 
 namespace NoviE2E.Suite.Accounts.Tests.StepDefinitions;
 
@@ -8,11 +10,13 @@ namespace NoviE2E.Suite.Accounts.Tests.StepDefinitions;
 public sealed class LoginSteps
 {
     private readonly LoginPage _loginPage;
+    private readonly IPage _page;
     private readonly TestConfig _config;
 
-    public LoginSteps(LoginPage loginPage)
+    public LoginSteps(LoginPage loginPage, IPage page)
     {
         _loginPage = loginPage;
+        _page = page;
         _config = TestConfig.Load();
     }
 
@@ -38,6 +42,15 @@ public sealed class LoginSteps
     public async Task TheUserIsAuthenticated()
     {
         await _loginPage.AssertAuthenticatedAsync();
+    }
+
+    [Then(@"the page title is ""(.*)""")]
+    public async Task ThePageTitleIs(string expectedTitle)
+    {
+        // Intentionally wrong assertion — triggers a failure so Playwright captures a trace.
+        // Download the trace ZIP from CI artifacts and drop it at https://trace.playwright.dev
+        // to time-travel through every step: screenshots, DOM, network, console.
+        await Expect(_page).ToHaveTitleAsync(expectedTitle);
     }
 
     [Then("the user logs out")]

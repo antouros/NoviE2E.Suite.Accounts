@@ -1,4 +1,4 @@
-name: Login Scenario
+name: Run E2E Tests
 
 on:
   push:
@@ -8,15 +8,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  run-e2e-tests:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Build Docker image
+        run: docker build -t novi-e2e-accounts .
+
       - name: Create appsettings.json from secrets
+        # The app reads config from the build output dir, so write it there directly.
         run: |
-          cat > NoviE2E.Suite.Accounts.Tests/appsettings.json << EOF
+          docker run --rm novi-e2e-accounts ls /app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/ | grep -q appsettings || true
+          mkdir -p ${{ github.workspace }}/config
+          cat > ${{ github.workspace }}/config/appsettings.json << EOF
           {
             "BaseUrl": "https://www.novibet.gr",
             "Credentials": {
@@ -32,24 +38,27 @@ jobs:
           }
           EOF
 
-      - name: Build Docker image
-        run: docker build -t novi-e2e-accounts .
-
-      - name: Run tests in container
+      - name: Run tests
+        id: run_tests
+        continue-on-error: true
         run: |
+          mkdir -p ${{ github.workspace }}/traces
+          mkdir -p ${{ github.workspace }}/test-results
           docker run --rm \
-            -v ${{ github.workspace }}/NoviE2E.Suite.Accounts.Tests/appsettings.json:/app/NoviE2E.Suite.Accounts.Tests/appsettings.json:ro \
+            -v ${{ github.workspace }}/config/appsettings.json:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/appsettings.json:ro \
             -v ${{ github.workspace }}/traces:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/traces \
             -v ${{ github.workspace }}/test-results:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/TestResults \
             novi-e2e-accounts
 
-      - name: Upload Playwright trace on failure
-        if: failure()
+      - name: Upload Playwright traces
+        if: always()
+        id: upload_traces
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
           path: traces/
           retention-days: 7
+          if-no-files-found: ignore
 
       - name: Upload test results
         if: always()
@@ -58,3 +67,43 @@ jobs:
           name: test-results
           path: test-results/
           retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Write job summary
+        if: always()
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ARTIFACT_URL="${RUN_URL}#artifacts"
+
+          if [ "${{ steps.run_tests.outcome }}" == "success" ]; then
+            STATUS="✅ Tests passed"
+          else
+            STATUS="❌ Tests failed"
+          fi
+
+          cat >> $GITHUB_STEP_SUMMARY << SUMMARY
+          ## $STATUS
+
+          | | |
+          |---|---|
+          | **Run** | [${{ github.run_id }}]($RUN_URL) |
+          | **Branch** | \`${{ github.ref_name }}\` |
+          | **Commit** | \`${{ github.sha }}\` |
+
+          SUMMARY
+
+          if [ "${{ steps.run_tests.outcome }}" != "success" ]; then
+            cat >> $GITHUB_STEP_SUMMARY << SUMMARY
+          ### 🔍 Open Trace Viewer
+
+          1. [Download the **playwright-traces** artifact]($ARTIFACT_URL)
+          2. Unzip it
+          3. Open **[trace.playwright.dev](https://trace.playwright.dev)** and drop the \`.zip\` onto the page
+
+          You will see screenshots · DOM snapshots · network requests · console — at every step.
+          SUMMARY
+          fi
+
+      - name: Fail the job if tests failed
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1
