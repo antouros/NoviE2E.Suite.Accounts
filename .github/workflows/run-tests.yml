@@ -10,6 +10,8 @@ on:
 jobs:
   run-e2e-tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -22,8 +24,8 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p ${{ github.workspace }}/traces
-          mkdir -p ${{ github.workspace }}/test-results
           mkdir -p ${{ github.workspace }}/screenshots
+          mkdir -p ${{ github.workspace }}/test-results
           docker run --rm \
             -v ${{ github.workspace }}/traces:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/traces \
             -v ${{ github.workspace }}/screenshots:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/screenshots \
@@ -39,23 +41,33 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-      - name: Upload Playwright traces
+      - name: Publish traces to Release (one-click viewer)
+        id: publish_traces
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-traces
-          path: traces/
-          retention-days: 7
-          if-no-files-found: ignore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ls traces/*.zip 1>/dev/null 2>&1; then
+            # Create or update a rolling release that always holds the latest traces
+            gh release create traces-latest \
+              --title "Latest Playwright Traces" \
+              --notes "Auto-updated on every run. Download not needed — click the link in the job summary." \
+              --prerelease 2>/dev/null || true
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+            # Upload each trace zip, overwriting any previous version
+            for f in traces/*.zip; do
+              gh release upload traces-latest "$f" --clobber
+            done
+
+            # Build the one-click URL for trace.playwright.dev
+            TRACE_NAME=$(basename traces/*.zip | head -1)
+            REPO="${{ github.repository }}"
+            TRACE_URL="https://github.com/${REPO}/releases/download/traces-latest/${TRACE_NAME}"
+            VIEWER_URL="https://trace.playwright.dev/?trace=${TRACE_URL}"
+
+            echo "viewer_url=${VIEWER_URL}" >> $GITHUB_OUTPUT
+            echo "trace_name=${TRACE_NAME}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Write job summary
         if: always()
@@ -79,19 +91,12 @@ jobs:
 
           SUMMARY
 
-          if [ "${{ steps.run_tests.outcome }}" != "success" ]; then
+          VIEWER_URL="${{ steps.publish_traces.outputs.viewer_url }}"
+          if [ -n "$VIEWER_URL" ]; then
             cat >> $GITHUB_STEP_SUMMARY << SUMMARY
-          ### 🔍 Open Trace Viewer
+          ### 🔍 [Open Trace Viewer]($VIEWER_URL)
 
-          1. [Download the **playwright-traces** artifact]($RUN_URL#artifacts) and unzip it
-          2. Open the trace locally — **no upload needed, no browser security issues:**
-
-          \`\`\`powershell
-          cd NoviE2E.Suite.Accounts.Tests
-          .\bin\Debug\net8.0\playwright.ps1 show-trace path\to\Trace_viewer_showcase___intentional_failure.zip
-          \`\`\`
-
-          > ℹ️ Alternatively open [trace.playwright.dev](https://trace.playwright.dev) and use **Select file** — do not drag-and-drop (known browser security limitation with PWAs).
+          One click — no download, no extraction needed.
           SUMMARY
           fi
 
