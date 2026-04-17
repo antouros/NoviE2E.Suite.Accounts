@@ -15,7 +15,8 @@ public sealed class TestConfig
             .AddJsonFile("appsettings.json", optional: false)
             .Build();
 
-        return config.Get<TestConfig>() ?? throw new InvalidOperationException("appsettings.json missing or invalid");
+        return config.Get<TestConfig>()
+            ?? throw new InvalidOperationException("appsettings.json missing or invalid");
     }
 }
 

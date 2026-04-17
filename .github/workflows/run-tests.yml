@@ -17,27 +17,6 @@ jobs:
       - name: Build Docker image
         run: docker build -t novi-e2e-accounts .
 
-      - name: Create appsettings.json from secrets
-        # The app reads config from the build output dir, so write it there directly.
-        run: |
-          docker run --rm novi-e2e-accounts ls /app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/ | grep -q appsettings || true
-          mkdir -p ${{ github.workspace }}/config
-          cat > ${{ github.workspace }}/config/appsettings.json << EOF
-          {
-            "BaseUrl": "https://www.novibet.gr",
-            "Credentials": {
-              "Username": "${{ secrets.NOVIBET_USERNAME }}",
-              "Password": "${{ secrets.NOVIBET_PASSWORD }}"
-            },
-            "Playwright": {
-              "Headless": true,
-              "SlowMoMs": 0,
-              "TraceOnFailure": true,
-              "DefaultTimeoutMs": 15000
-            }
-          }
-          EOF
-
       - name: Run tests
         id: run_tests
         continue-on-error: true
@@ -45,14 +24,12 @@ jobs:
           mkdir -p ${{ github.workspace }}/traces
           mkdir -p ${{ github.workspace }}/test-results
           docker run --rm \
-            -v ${{ github.workspace }}/config/appsettings.json:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/appsettings.json:ro \
             -v ${{ github.workspace }}/traces:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/traces \
             -v ${{ github.workspace }}/test-results:/app/NoviE2E.Suite.Accounts.Tests/bin/Debug/net8.0/TestResults \
             novi-e2e-accounts
 
       - name: Upload Playwright traces
         if: always()
-        id: upload_traces
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
@@ -73,7 +50,6 @@ jobs:
         if: always()
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          ARTIFACT_URL="${RUN_URL}#artifacts"
 
           if [ "${{ steps.run_tests.outcome }}" == "success" ]; then
             STATUS="✅ Tests passed"
@@ -96,11 +72,9 @@ jobs:
             cat >> $GITHUB_STEP_SUMMARY << SUMMARY
           ### 🔍 Open Trace Viewer
 
-          1. [Download the **playwright-traces** artifact]($ARTIFACT_URL)
+          1. [Download the **playwright-traces** artifact]($RUN_URL#artifacts)
           2. Unzip it
           3. Open **[trace.playwright.dev](https://trace.playwright.dev)** and drop the \`.zip\` onto the page
-
-          You will see screenshots · DOM snapshots · network requests · console — at every step.
           SUMMARY
           fi
 

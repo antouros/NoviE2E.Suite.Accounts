@@ -31,7 +31,14 @@ public sealed class LoginPage
     private ILocator InfoContainer => _page.Locator("[data-nov='1682414139']");
     private ILocator LogoutButton => _page.Locator(".walletDetailsHeader_logoutButton");
 
-    public Task NavigateAsync() => _page.GotoAsync("/");
+    public async Task NavigateAsync()
+    {
+        await _page.GotoAsync("/");
+        // Wait for the Angular SPA to finish rendering before interacting.
+        // In headless/CI mode, GotoAsync returns on the 'load' event but Angular
+        // component trees render asynchronously; NetworkIdle gives them time to settle.
+        await _page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+    }
 
     public async Task LoginAsync(string username, string password)
     {

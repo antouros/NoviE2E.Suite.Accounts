@@ -8,11 +8,11 @@ Feature: User login and logout
     Given the user navigates to the site
     When the user logs in with the configured credentials
     Then the login API confirms success
-    * the user is authenticated
+      * the user is authenticated
 
   @UI @trace-showcase @Team_Tanzanite @Feature_Authentication
   Scenario: Trace viewer showcase - intentional failure
     Given the user navigates to the site
     When the user logs in with the configured credentials
     Then the login API confirms success
-    * the page title is "Google"
+      * the page title is "Google"
