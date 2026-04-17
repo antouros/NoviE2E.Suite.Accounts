@@ -1,0 +1,9 @@
+**/.git
+**/bin
+**/obj
+**/.vs
+**/.idea
+**/traces
+**/TestResults
+# Never bake credentials into the image
+NoviE2E.Suite.Accounts.Tests/appsettings.json
