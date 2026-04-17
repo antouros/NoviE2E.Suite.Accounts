@@ -41,32 +41,34 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-      - name: Publish traces to Release (one-click viewer)
+      - name: Publish traces to repo (enables one-click viewer)
         id: publish_traces
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ls traces/*.zip 1>/dev/null 2>&1; then
-            # Create or update a rolling release that always holds the latest traces
-            gh release create traces-latest \
-              --title "Latest Playwright Traces" \
-              --notes "Auto-updated on every run. Download not needed — click the link in the job summary." \
-              --prerelease 2>/dev/null || true
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            # Upload each trace zip, overwriting any previous version
-            for f in traces/*.zip; do
-              gh release upload traces-latest "$f" --clobber
-            done
+            mkdir -p published-traces
+            cp traces/*.zip published-traces/
 
-            # Build the one-click URL for trace.playwright.dev
-            TRACE_NAME=$(basename traces/*.zip | head -1)
+            git fetch origin
+            git checkout -B traces-branch origin/main 2>/dev/null || git checkout -B traces-branch
+
+            mkdir -p published-traces
+            cp traces/*.zip published-traces/ 2>/dev/null || true
+            git add published-traces/
+            git commit -m "chore: update traces [skip ci]" --allow-empty
+            git push origin traces-branch --force
+
+            TRACE_FILE=$(ls traces/*.zip | head -1 | xargs basename)
             REPO="${{ github.repository }}"
-            TRACE_URL="https://github.com/${REPO}/releases/download/traces-latest/${TRACE_NAME}"
-            VIEWER_URL="https://trace.playwright.dev/?trace=${TRACE_URL}"
+            RAW_URL="https://raw.githubusercontent.com/${REPO}/traces-branch/published-traces/${TRACE_FILE}"
+            VIEWER_URL="https://trace.playwright.dev/?trace=${RAW_URL}"
 
             echo "viewer_url=${VIEWER_URL}" >> $GITHUB_OUTPUT
-            echo "trace_name=${TRACE_NAME}" >> $GITHUB_OUTPUT
           fi
 
       - name: Write job summary
@@ -94,9 +96,9 @@ jobs:
           VIEWER_URL="${{ steps.publish_traces.outputs.viewer_url }}"
           if [ -n "$VIEWER_URL" ]; then
             cat >> $GITHUB_STEP_SUMMARY << SUMMARY
-          ### 🔍 [Open Trace Viewer]($VIEWER_URL)
+          ### 🔍 [Open Trace Viewer — One Click]($VIEWER_URL)
 
-          One click — no download, no extraction needed.
+          > Requires the repository to be **public** so raw.githubusercontent.com can serve the trace.
           SUMMARY
           fi
 
