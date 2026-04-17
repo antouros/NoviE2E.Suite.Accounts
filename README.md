@@ -6,7 +6,7 @@ Playwright test suite for the **Accounts vertical** — built as a standalone al
 
 ---
 
-## Setup
+## Setup (one-time)
 
 ```powershell
 git clone https://github.com/antouros/NoviE2E.Suite.Accounts
@@ -14,8 +14,15 @@ cd NoviE2E.Suite.Accounts
 dotnet restore
 dotnet build
 .\NoviE2E.Suite.Accounts.Tests\bin\Debug\net8.0\playwright.ps1 install chromium
+```
+
+## Run tests
+
+```powershell
 dotnet test
 ```
+
+> `dotnet build` and `playwright.ps1 install` are one-time setup steps — you don't need to repeat them every time you run tests.
 
 ---
 
