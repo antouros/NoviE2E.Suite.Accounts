@@ -26,14 +26,18 @@ public sealed class PlaywrightHooks
         var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
             Headless = config.Playwright.Headless,
-            SlowMo = config.Playwright.SlowMoMs
+            SlowMo = config.Playwright.SlowMoMs,
+            // Prevent sites from detecting headless Chromium via navigator.webdriver
+            Args = new[] { "--disable-blink-features=AutomationControlled" }
         });
 
         var browserContext = await browser.NewContextAsync(new BrowserNewContextOptions
         {
             ViewportSize = new ViewportSize { Width = 1920, Height = 1080 },
             Locale = "el-GR",
-            BaseURL = config.BaseUrl
+            BaseURL = config.BaseUrl,
+            // Realistic user agent avoids bot-detection fingerprinting
+            UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         });
 
         if (config.Playwright.TraceOnFailure)
@@ -97,23 +101,8 @@ public sealed class PlaywrightHooks
                 Path = tracePath
             });
 
-            // Also dump the current page HTML + a screenshot to help diagnose selector issues.
-            try
-            {
-                var htmlPath = Path.Combine(tracesDir, $"{safeName}.html");
-                var html = await pwContext.Page.ContentAsync();
-                await File.WriteAllTextAsync(htmlPath, html);
-
-                var pngPath = Path.Combine(tracesDir, $"{safeName}.png");
-                await pwContext.Page.ScreenshotAsync(new PageScreenshotOptions { Path = pngPath, FullPage = true });
-
-                NUnit.Framework.TestContext.Progress.WriteLine($"HTML dump: {htmlPath}");
-                NUnit.Framework.TestContext.Progress.WriteLine($"Screenshot: {pngPath}");
-            }
-            catch (PlaywrightException) { /* page already closed; ignore */ }
-
             NUnit.Framework.TestContext.Progress.WriteLine($"Trace saved: {tracePath}");
-            NUnit.Framework.TestContext.Progress.WriteLine("Open it at https://trace.playwright.dev");
+            NUnit.Framework.TestContext.Progress.WriteLine("Open: pwsh playwright.ps1 show-trace \"" + tracePath + "\"");
         }
         else if (config.Playwright.TraceOnFailure)
         {

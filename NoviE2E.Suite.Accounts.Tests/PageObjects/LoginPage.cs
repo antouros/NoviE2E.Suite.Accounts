@@ -35,9 +35,16 @@ public sealed class LoginPage
     {
         await _page.GotoAsync("/");
         // Wait for the Angular SPA to finish rendering before interacting.
-        // In headless/CI mode, GotoAsync returns on the 'load' event but Angular
-        // component trees render asynchronously; NetworkIdle gives them time to settle.
         await _page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+        // Capture a startup screenshot in every run — useful for diagnosing CI rendering.
+        var screenshotsDir = Path.Combine(AppContext.BaseDirectory, "screenshots");
+        Directory.CreateDirectory(screenshotsDir);
+        await _page.ScreenshotAsync(new PageScreenshotOptions
+        {
+            Path = Path.Combine(screenshotsDir, "startup.png"),
+            FullPage = false
+        });
     }
 
     public async Task LoginAsync(string username, string password)
